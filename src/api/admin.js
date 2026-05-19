@@ -1,0 +1,41 @@
+import http from './client'
+
+export const adminApi = {
+  login(username, password) {
+    return http.post('/admin/login', { username, password })
+  },
+  overview() {
+    return http.get('/admin/stats/overview')
+  },
+  daily(days = 14) {
+    return http.get('/admin/stats/daily', { params: { days } })
+  },
+  models(days = 30) {
+    return http.get('/admin/stats/models', { params: { days } })
+  },
+  quality(windowHours = 24) {
+    return http.get('/admin/stats/quality', { params: { window_hours: windowHours } })
+  },
+  users({ page = 1, pageSize = 20, q = '' } = {}) {
+    return http.get('/admin/users', {
+      params: { page, page_size: pageSize, q },
+    })
+  },
+  userDetail(id) {
+    return http.get(`/admin/users/${id}`)
+  },
+  requests({ page = 1, pageSize = 20, userId, xRequestId, xDevshardId, model, outcome, from, to } = {}) {
+    const params = { page, page_size: pageSize }
+    if (userId) params.user_id = userId
+    if (xRequestId) params.x_request_id = xRequestId
+    if (xDevshardId) params.x_devshard_id = xDevshardId
+    if (model) params.model = model
+    if (outcome) params.outcome = outcome
+    if (from) params.from = from
+    if (to) params.to = to
+    return http.get('/admin/requests', { params })
+  },
+  requestDetail(id) {
+    return http.get(`/admin/requests/${id}`)
+  },
+}
