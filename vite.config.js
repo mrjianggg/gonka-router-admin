@@ -21,7 +21,7 @@ export default defineConfig(({ mode }) => {
   // VITE_PROXY_TARGET selects where /admin/* gets forwarded to during dev.
   // Use https://api.gonkascan.com to hit production, or http://localhost:4000
   // when running model-gateway locally via docker compose.
-  const proxyTarget = env.VITE_PROXY_TARGET || 'http://localhost:4000'
+  const proxyTarget = 'https://api.gonkascan.com'
 
   return {
     plugins: [
