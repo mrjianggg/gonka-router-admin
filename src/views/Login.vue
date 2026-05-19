@@ -55,9 +55,6 @@
         </el-button>
       </el-form>
 
-      <div class="hint">
-        默认账号 <code>admin</code> · 密码已通过 <code>.env</code> 配置
-      </div>
     </div>
   </div>
 </template>
