@@ -28,6 +28,16 @@
         <el-menu-item index="/requests">
           <el-icon><Document /></el-icon><span>请求追溯</span>
         </el-menu-item>
+        <el-menu-item index="/blog">
+          <el-icon><Tickets /></el-icon><span>Blog 管理</span>
+        </el-menu-item>
+        <el-menu-item index="/feedback">
+          <el-icon><ChatDotRound /></el-icon>
+          <span class="menu-label">
+            用户反馈
+            <el-badge v-if="unreadCount > 0" :value="unreadCount" :max="99" class="menu-badge" />
+          </span>
+        </el-menu-item>
       </el-menu>
 
       <div class="sidebar-footer">
@@ -90,18 +100,22 @@
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { DataLine, User, Document, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
+import { DataLine, User, Document, Tickets, ChatDotRound, ArrowDown, SwitchButton } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
+import { adminApi } from '@/api/admin'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 
 const drawerOpen = ref(false)
+const unreadCount = ref(0)
 
 const active = computed(() => {
   if (route.path.startsWith('/users')) return '/users'
   if (route.path.startsWith('/requests')) return '/requests'
+  if (route.path.startsWith('/blog')) return '/blog'
+  if (route.path.startsWith('/feedback')) return '/feedback'
   return route.path
 })
 
@@ -110,8 +124,22 @@ const pageTitle = computed(() => {
   if (route.name === 'users') return '用户管理'
   if (route.name === 'user-detail') return '用户详情'
   if (route.name === 'requests') return '请求追溯'
+  if (route.name === 'blog') return 'Blog 管理'
+  if (route.name === 'blog-new') return '新增文章'
+  if (route.name === 'blog-edit') return '编辑文章'
+  if (route.name === 'feedback') return '用户反馈'
   return ''
 })
+
+const refreshUnread = async () => {
+  try {
+    const res = await adminApi.feedbackUnreadCount()
+    unreadCount.value = (res.data ?? res).unread ?? 0
+  } catch { /* silent — badge is non-critical */ }
+}
+// Re-check the unread badge whenever navigating (e.g. after reading on the
+// feedback page) so the sidebar count stays in sync.
+watch(() => route.fullPath, refreshUnread)
 
 const initial = computed(() => (auth.username || 'A').slice(0, 1).toUpperCase())
 
@@ -131,7 +159,10 @@ watch(() => route.fullPath, closeDrawer)
 function onKey(e) {
   if (e.key === 'Escape') closeDrawer()
 }
-onMounted(() => window.addEventListener('keydown', onKey))
+onMounted(() => {
+  window.addEventListener('keydown', onKey)
+  refreshUnread()
+})
 onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 </script>
 
@@ -223,6 +254,19 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 .menu :deep(.el-menu-item:hover) {
   background: rgba(255, 255, 255, 0.06);
   transform: translateX(2px);
+}
+.menu-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.menu-badge :deep(.el-badge__content) {
+  border: none;
+  background: #ef4444;
+  font-size: 10px;
+  height: 16px;
+  line-height: 16px;
+  padding: 0 5px;
 }
 
 .sidebar-footer {

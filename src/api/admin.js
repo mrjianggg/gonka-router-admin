@@ -38,4 +38,53 @@ export const adminApi = {
   requestDetail(id) {
     return http.get(`/admin/requests/${id}`)
   },
+
+  // ── Blog ─────────────────────────────────────────────────────────────────
+  posts({ page = 1, pageSize = 20, status = '' } = {}) {
+    const params = { page, page_size: pageSize }
+    if (status) params.status = status
+    return http.get('/admin/posts', { params })
+  },
+  postDetail(id) {
+    return http.get(`/admin/posts/${id}`)
+  },
+  createPost(data) {
+    return http.post('/admin/posts', data)
+  },
+  updatePost(id, data) {
+    return http.put(`/admin/posts/${id}`, data)
+  },
+  deletePost(id) {
+    return http.delete(`/admin/posts/${id}`)
+  },
+  publishPost(id) {
+    return http.post(`/admin/posts/${id}/publish`)
+  },
+  unpublishPost(id) {
+    return http.post(`/admin/posts/${id}/unpublish`)
+  },
+  uploadPostCover(formData) {
+    return http.post('/admin/upload/image', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
+  // ── Feedback ─────────────────────────────────────────────────────────────
+  feedbacks({ page = 1, pageSize = 20, status = '' } = {}) {
+    const params = { page, page_size: pageSize }
+    if (status) params.status = status
+    return http.get('/admin/feedbacks', { params })
+  },
+  feedbackUnreadCount() {
+    return http.get('/admin/feedback-unread-count')
+  },
+  markFeedbackRead(id) {
+    return http.post(`/admin/feedbacks/${id}/read`)
+  },
+  markFeedbackUnread(id) {
+    return http.post(`/admin/feedbacks/${id}/unread`)
+  },
+  deleteFeedback(id) {
+    return http.delete(`/admin/feedbacks/${id}`)
+  },
 }
