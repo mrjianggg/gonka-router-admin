@@ -147,6 +147,26 @@
             <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImageFile" />
           </div>
 
+          <div class="tb-divider" />
+
+          <!-- Table -->
+          <div class="tb-group">
+            <button class="tb-btn tb-text" title="插入 3×3 表格" @click="insertTable">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4">
+                <rect x="1" y="2" width="12" height="10" rx="1"/>
+                <path d="M1 5.5h12M1 9h12M5 2v10M9 2v10"/>
+              </svg>
+              表格
+            </button>
+            <template v-if="inTable">
+              <button class="tb-btn tb-sm" title="新增一列" @click="addColumnAfter">+列</button>
+              <button class="tb-btn tb-sm" title="新增一行" @click="addRowAfter">+行</button>
+              <button class="tb-btn tb-sm" title="删除当前列" @click="deleteColumn">−列</button>
+              <button class="tb-btn tb-sm" title="删除当前行" @click="deleteRow">−行</button>
+              <button class="tb-btn tb-sm" title="删除整张表格" @click="deleteTable">✕</button>
+            </template>
+          </div>
+
         </div>
 
         <!-- Document area -->
@@ -257,8 +277,13 @@ import { Highlight } from '@tiptap/extension-highlight'
 import { Underline } from '@tiptap/extension-underline'
 import { Link } from '@tiptap/extension-link'
 import { Placeholder } from '@tiptap/extension-placeholder'
+import { Table } from '@tiptap/extension-table'
+import { TableRow } from '@tiptap/extension-table-row'
+import { TableCell } from '@tiptap/extension-table-cell'
+import { TableHeader } from '@tiptap/extension-table-header'
 import { ImageResize } from 'tiptap-extension-resize-image'
 import { adminApi } from '@/api/admin'
+import { normalizePastedHTML } from '@/utils/pasteNormalizer'
 
 // ── Inline icon components ────────────────────────────────────────────────────
 const AlignLeftIcon = {
@@ -307,12 +332,35 @@ const editor = useEditor({
     Underline,
     Link.configure({ openOnClick: false }),
     Placeholder.configure({ placeholder: '在此撰写正文内容…' }),
+    // resizable: true lets editors drag table column widths inline.
+    Table.configure({ resizable: true, HTMLAttributes: { class: 'tt-table' } }),
+    TableRow,
+    TableHeader,
+    TableCell,
   ],
   content: '',
+  // Normalize external clipboard HTML before TipTap parses it: convert
+  // <picture> / <figure> / srcset into shapes our schema preserves, and
+  // strip <script>/<style>/event handlers defensively.
+  editorProps: {
+    transformPastedHTML(html) {
+      return normalizePastedHTML(html)
+    },
+  },
   onUpdate({ editor }) {
     form.content = editor.getHTML()
   },
 })
+
+// ── Table helpers ─────────────────────────────────────────────────────────────
+const insertTable = () =>
+  editor.value?.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+const addColumnAfter = () => editor.value?.chain().focus().addColumnAfter().run()
+const addRowAfter = () => editor.value?.chain().focus().addRowAfter().run()
+const deleteColumn = () => editor.value?.chain().focus().deleteColumn().run()
+const deleteRow = () => editor.value?.chain().focus().deleteRow().run()
+const deleteTable = () => editor.value?.chain().focus().deleteTable().run()
+const inTable = computed(() => editor.value?.isActive('table') ?? false)
 
 const activeColor = computed(() => editor.value?.getAttributes('textStyle').color || '#e2e8f0')
 const activeBg = computed(() => editor.value?.getAttributes('highlight').color || 'transparent')
@@ -760,6 +808,56 @@ onBeforeUnmount(() => editor.value?.destroy())
   border: none; border-top: 1px solid rgba(255,255,255,.07); margin: 2rem 0;
 }
 .doc-content :deep(.ProseMirror-selectednode img) { outline: 2px solid #4f46e5; border-radius: 8px; }
+
+/* Tables (Tiptap @extension-table) ------------------------------------------- */
+.doc-content :deep(.ProseMirror table) {
+  border-collapse: collapse;
+  margin: 1rem 0;
+  table-layout: fixed;
+  width: 100%;
+  overflow: hidden;
+}
+.doc-content :deep(.ProseMirror th),
+.doc-content :deep(.ProseMirror td) {
+  border: 1px solid rgba(255,255,255,.12);
+  padding: 8px 12px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+  min-width: 80px;
+}
+.doc-content :deep(.ProseMirror th) {
+  background: rgba(99,102,241,.08);
+  color: #e2e8f0;
+  font-weight: 700;
+  text-align: left;
+}
+.doc-content :deep(.ProseMirror .selectedCell:after) {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  inset: 0;
+  background: rgba(99,102,241,.15);
+  pointer-events: none;
+}
+.doc-content :deep(.ProseMirror .column-resize-handle) {
+  position: absolute;
+  right: -2px; top: 0; bottom: -2px;
+  width: 4px;
+  background-color: #6366f1;
+  pointer-events: none;
+}
+.doc-content :deep(.ProseMirror.resize-cursor) { cursor: ew-resize; }
+
+/* Pasted captions surfaced from <figure><figcaption> --------------------------- */
+.doc-content :deep(.ProseMirror .image-caption) {
+  margin-top: -0.25rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+  color: #64748b;
+  text-align: center;
+  font-style: italic;
+}
 
 /* Status bar */
 .editor-statusbar {
