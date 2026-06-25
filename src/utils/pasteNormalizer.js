@@ -34,6 +34,11 @@ const DANGEROUS_TAGS = new Set([
   'noscript',
   'object',
   'embed',
+  // Local video upload was removed — the editor has no <video> node, so a
+  // pasted <video> would be dropped by the schema anyway. Strip it here for
+  // a predictable result. YouTube/Bilibili embeds use <iframe>, handled
+  // separately by normalizeIframes.
+  'video',
 ])
 
 const DROP_ATTR_PREFIXES = ['on'] // onclick, onload, …
@@ -70,30 +75,6 @@ function pickBestImageSrc(img) {
     }
   }
   return direct || ''
-}
-
-function normalizeVideos(doc) {
-  doc.querySelectorAll('video').forEach((vid) => {
-    // Prefer the <video src=""> attribute; fall back to the first <source>.
-    let src = vid.getAttribute('src')
-    if (!src) {
-      const source = vid.querySelector('source[src]')
-      if (source) src = source.getAttribute('src')
-    }
-    if (!src || isUnsafeURL(src)) {
-      vid.remove()
-      return
-    }
-    // Rewrite to a flat <video src="..." controls></video> so the schema
-    // node parses cleanly without depending on <source> children that the
-    // Tiptap Video node doesn't reconstruct.
-    const replacement = doc.createElement('video')
-    replacement.setAttribute('src', src)
-    replacement.setAttribute('controls', '')
-    const poster = vid.getAttribute('poster')
-    if (poster && !isUnsafeURL(poster)) replacement.setAttribute('poster', poster)
-    vid.replaceWith(replacement)
-  })
 }
 
 function normalizeIframes(doc) {
@@ -220,13 +201,11 @@ export function normalizePastedHTML(html) {
   }
   if (!doc || !doc.body) return html
 
-  stripDangerousNodes(doc)
-  // Media handlers must run before stripDangerousAttributes — they rely on
-  // src/poster attributes that the strip pass would otherwise leave alone
-  // (no on* prefix) but bypassing them in the wrong order risks losing the
-  // src on a host-rewrite path.
+  // Resolve trusted iframes (YouTube/Bilibili) BEFORE stripping dangerous
+  // nodes — normalizeIframes keeps/rewrites allowed embeds and drops the
+  // rest, so the strip pass only sees the genuinely unwanted tags.
   normalizeIframes(doc)
-  normalizeVideos(doc)
+  stripDangerousNodes(doc)
   unwrapPicture(doc)
   unwrapFigures(doc)
   normalizeImages(doc)

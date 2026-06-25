@@ -69,25 +69,6 @@ export const adminApi = {
     })
   },
 
-  /**
-   * Uploads an image or video to the post media backend. Used by the inline
-   * blog editor (image button / video button). Returns { url, kind, mime,
-   * size_bytes }. The caller may pass an axios onUploadProgress to show a
-   * progress bar for large videos.
-   */
-  uploadMedia(file, { kind, onUploadProgress } = {}) {
-    const fd = new FormData()
-    fd.append('file', file)
-    if (kind) fd.append('kind', kind)
-    return http.post('/admin/upload/media', fd, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      // Videos can be up to 100 MB; default axios timeout (15s in client.js)
-      // is too short. Allow up to 5 minutes for upstream OSS to ingest.
-      timeout: 5 * 60 * 1000,
-      onUploadProgress,
-    })
-  },
-
   // ── Feedback ─────────────────────────────────────────────────────────────
   feedbacks({ page = 1, pageSize = 20, status = '' } = {}) {
     const params = { page, page_size: pageSize }
