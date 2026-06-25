@@ -145,6 +145,24 @@
               图片
             </button>
             <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImageFile" />
+            <button class="tb-btn tb-text" :title="`上传视频 (mp4 / webm, ≤${MAX_VIDEO_MB}MB)`"
+              :disabled="uploadingVideo" @click="triggerVideoUpload">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="1" y="2.5" width="9" height="9" rx="1.5"/>
+                <path d="M10 6.5l3-1.5v4l-3-1.5z"/>
+              </svg>
+              <span v-if="!uploadingVideo">视频</span>
+              <span v-else>上传中 {{ videoProgress }}%</span>
+            </button>
+            <input ref="videoInput" type="file" accept="video/mp4,video/webm,video/quicktime"
+              class="hidden" @change="onVideoFile" />
+            <button class="tb-btn tb-text" title="嵌入 YouTube / Bilibili 链接" @click="insertEmbed">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5.5 8.5a3.5 3.5 0 0 0 5 0l2-2a3.5 3.5 0 0 0-5-5L6 3"/>
+                <circle cx="7" cy="7" r="1"/>
+              </svg>
+              嵌入
+            </button>
           </div>
 
           <div class="tb-divider" />
@@ -284,6 +302,9 @@ import { TableHeader } from '@tiptap/extension-table-header'
 import { ImageResize } from 'tiptap-extension-resize-image'
 import { adminApi } from '@/api/admin'
 import { normalizePastedHTML } from '@/utils/pasteNormalizer'
+import { Video } from '@/utils/tiptapVideo'
+import { Embed } from '@/utils/tiptapEmbed'
+import { toEmbedURL } from '@/utils/embedHosts'
 
 // ── Inline icon components ────────────────────────────────────────────────────
 const AlignLeftIcon = {
@@ -337,6 +358,10 @@ const editor = useEditor({
     TableRow,
     TableHeader,
     TableCell,
+    // Video: uploaded mp4/webm/mov served from OSS.
+    Video,
+    // Embed: YouTube / Bilibili iframes — see embedHosts.js for allowlist.
+    Embed,
   ],
   content: '',
   // Normalize external clipboard HTML before TipTap parses it: convert
@@ -390,6 +415,60 @@ const onImageFile = (e) => {
   reader.onload = (ev) => editor.value?.chain().focus().setImage({ src: ev.target.result }).run()
   reader.readAsDataURL(file)
   e.target.value = ''
+}
+
+// ── Video upload ──────────────────────────────────────────────────────────────
+// Unlike images we can NOT base64-inline a 100 MB mp4 — videos go through
+// OSS via /admin/upload/media. The UI shows an upload progress indicator
+// because the round-trip can take a few seconds to a minute.
+const videoInput = ref(null)
+const uploadingVideo = ref(false)
+const videoProgress = ref(0)
+
+const MAX_VIDEO_MB = 100
+
+const triggerVideoUpload = () => videoInput.value?.click()
+
+const onVideoFile = async (e) => {
+  const file = e.target.files?.[0]
+  e.target.value = ''
+  if (!file) return
+  if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+    ElMessage.warning(`视频不能超过 ${MAX_VIDEO_MB} MB`)
+    return
+  }
+  uploadingVideo.value = true
+  videoProgress.value = 0
+  try {
+    const resp = await adminApi.uploadMedia(file, {
+      kind: 'video',
+      onUploadProgress: (evt) => {
+        if (evt.total) videoProgress.value = Math.round((evt.loaded / evt.total) * 100)
+      },
+    })
+    const data = resp.data ?? resp
+    const url = data.url
+    if (!url) throw new Error('上传成功但服务端未返回 URL')
+    editor.value?.chain().focus().setVideo({ src: url }).run()
+    ElMessage.success('视频上传成功')
+  } catch (err) {
+    ElMessage.error(err?.response?.data?.error?.message || err?.message || '视频上传失败')
+  } finally {
+    uploadingVideo.value = false
+    videoProgress.value = 0
+  }
+}
+
+// ── Embed (YouTube / Bilibili) ───────────────────────────────────────────────
+const insertEmbed = () => {
+  const url = window.prompt('粘贴 YouTube 或 Bilibili 视频链接')
+  if (!url) return
+  const embed = toEmbedURL(url.trim())
+  if (!embed) {
+    ElMessage.warning('暂只支持 YouTube / Bilibili 链接')
+    return
+  }
+  editor.value?.chain().focus().setEmbed({ src: embed }).run()
 }
 
 // ── Cover ─────────────────────────────────────────────────────────────────────
@@ -857,6 +936,43 @@ onBeforeUnmount(() => editor.value?.destroy())
   color: #64748b;
   text-align: center;
   font-style: italic;
+}
+
+/* Video + Embed nodes -------------------------------------------------------- */
+.doc-content :deep(.ProseMirror video) {
+  display: block;
+  width: 100%;
+  max-height: 540px;
+  border-radius: 10px;
+  background: #000;
+  margin: 1rem 0;
+  border: 1px solid rgba(255,255,255,.06);
+}
+.doc-content :deep(.ProseMirror-selectednode video) {
+  outline: 2px solid #4f46e5;
+  border-radius: 10px;
+}
+
+.doc-content :deep(.ProseMirror .embed-wrapper) {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 1rem 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.08);
+  background: #0a0f1a;
+}
+.doc-content :deep(.ProseMirror .embed-wrapper iframe) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+.doc-content :deep(.ProseMirror-selectednode.embed-wrapper),
+.doc-content :deep(.ProseMirror .embed-wrapper.ProseMirror-selectednode) {
+  outline: 2px solid #4f46e5;
 }
 
 /* Status bar */

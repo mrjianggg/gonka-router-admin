@@ -21,13 +21,17 @@
 // All transformations happen via DOMParser in a detached document, so the
 // caller can use the result as a plain HTML string.
 
+import { isAllowedEmbedSrc, toEmbedURL } from './embedHosts'
+
+// We deliberately do NOT include 'iframe' in this list — iframes are
+// handled separately (normalizeIframes) so we can preserve embeds from
+// trusted hosts (YouTube / Bilibili) instead of dropping all of them.
 const DANGEROUS_TAGS = new Set([
   'script',
   'style',
   'link',
   'meta',
   'noscript',
-  'iframe',
   'object',
   'embed',
 ])
@@ -66,6 +70,57 @@ function pickBestImageSrc(img) {
     }
   }
   return direct || ''
+}
+
+function normalizeVideos(doc) {
+  doc.querySelectorAll('video').forEach((vid) => {
+    // Prefer the <video src=""> attribute; fall back to the first <source>.
+    let src = vid.getAttribute('src')
+    if (!src) {
+      const source = vid.querySelector('source[src]')
+      if (source) src = source.getAttribute('src')
+    }
+    if (!src || isUnsafeURL(src)) {
+      vid.remove()
+      return
+    }
+    // Rewrite to a flat <video src="..." controls></video> so the schema
+    // node parses cleanly without depending on <source> children that the
+    // Tiptap Video node doesn't reconstruct.
+    const replacement = doc.createElement('video')
+    replacement.setAttribute('src', src)
+    replacement.setAttribute('controls', '')
+    const poster = vid.getAttribute('poster')
+    if (poster && !isUnsafeURL(poster)) replacement.setAttribute('poster', poster)
+    vid.replaceWith(replacement)
+  })
+}
+
+function normalizeIframes(doc) {
+  doc.querySelectorAll('iframe').forEach((iframe) => {
+    const rawSrc = iframe.getAttribute('src') || ''
+    // First, see if the src is already a canonical embed URL we trust.
+    if (isAllowedEmbedSrc(rawSrc)) {
+      // Already good — strip dangerous attrs but keep it.
+      Array.from(iframe.attributes).forEach((a) => {
+        const n = a.name.toLowerCase()
+        if (DROP_ATTR_PREFIXES.some((p) => n.startsWith(p)) || n === 'sandbox') {
+          iframe.removeAttribute(a.name)
+        }
+      })
+      return
+    }
+    // Otherwise, try to convert the page URL (e.g. youtube.com/watch?v=…)
+    // into an embed URL — handles cases where users paste a watch page link
+    // wrapped in an unrelated iframe.
+    const embed = toEmbedURL(rawSrc)
+    if (embed) {
+      iframe.setAttribute('src', embed)
+      return
+    }
+    // Not a host we recognize — drop.
+    iframe.remove()
+  })
 }
 
 function unwrapPicture(doc) {
@@ -166,6 +221,12 @@ export function normalizePastedHTML(html) {
   if (!doc || !doc.body) return html
 
   stripDangerousNodes(doc)
+  // Media handlers must run before stripDangerousAttributes — they rely on
+  // src/poster attributes that the strip pass would otherwise leave alone
+  // (no on* prefix) but bypassing them in the wrong order risks losing the
+  // src on a host-rewrite path.
+  normalizeIframes(doc)
+  normalizeVideos(doc)
   unwrapPicture(doc)
   unwrapFigures(doc)
   normalizeImages(doc)
