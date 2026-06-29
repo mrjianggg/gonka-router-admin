@@ -41,7 +41,9 @@
           <div class="tb-group">
             <select class="tb-select" title="段落样式" @change="setHeading(+$event.target.value)">
               <option :value="0" :selected="!editor.isActive('heading')">正文</option>
-              <option :value="1" :selected="editor.isActive('heading', { level: 1 })">标题 1</option>
+              <!-- H1 intentionally omitted: the public page already renders the
+                   post title as the single page <h1>. Body headings start at H2
+                   so each article keeps exactly one H1 (SEO best practice). -->
               <option :value="2" :selected="editor.isActive('heading', { level: 2 })">标题 2</option>
               <option :value="3" :selected="editor.isActive('heading', { level: 3 })">标题 3</option>
             </select>
@@ -332,7 +334,10 @@ const form = reactive({
 // ── TipTap ────────────────────────────────────────────────────────────────────
 const editor = useEditor({
   extensions: [
-    StarterKit.configure({ image: false }),
+    // Restrict body headings to H2/H3 — the page title is the only H1, so
+    // disallow H1 entirely (covers the dropdown, the Ctrl+Alt+1 shortcut, and
+    // pasted H1s, which StarterKit would otherwise accept).
+    StarterKit.configure({ image: false, heading: { levels: [2, 3] } }),
     ImageResize.configure({ allowBase64: true }),
     TextAlign.configure({ types: ['heading', 'paragraph'] }),
     TextStyle,
