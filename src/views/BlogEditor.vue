@@ -397,8 +397,13 @@ const onImageFile = (e) => {
   const file = e.target.files?.[0]
   if (!file) return
   if (file.size > 10 * 1024 * 1024) { ElMessage.warning('图片不能超过 10MB'); return }
+  // Prompt for alt text — important for SEO/accessibility (every <img> should
+  // describe itself). Pre-fill with the filename (sans extension) as a hint;
+  // an empty alt is allowed but discouraged.
+  const fallback = file.name.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').trim()
+  const alt = (window.prompt('图片的替代文字 (ALT，利于 SEO)', fallback) ?? fallback).trim()
   const reader = new FileReader()
-  reader.onload = (ev) => editor.value?.chain().focus().setImage({ src: ev.target.result }).run()
+  reader.onload = (ev) => editor.value?.chain().focus().setImage({ src: ev.target.result, alt }).run()
   reader.readAsDataURL(file)
   e.target.value = ''
 }
