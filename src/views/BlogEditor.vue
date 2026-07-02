@@ -226,7 +226,7 @@
                 <circle cx="7.5" cy="7.5" r="1.5"/>
                 <path d="M2 14l5-5 3.5 3.5L14 9l6 6"/>
               </svg>
-              <span>点击或拖拽上传</span>
+              <span>{{ coverUploading ? '上传中…' : '点击或拖拽上传' }}</span>
               <small>推荐 1200 × 630 px</small>
             </div>
             <button v-if="form.cover" class="cover-remove" @click.stop="form.cover = ''">
@@ -426,13 +426,27 @@ const insertEmbed = () => {
 }
 
 // ── Cover ─────────────────────────────────────────────────────────────────────
-// Use base64 inline only — server FILE_STORE_PATH not configured, avoid 501 error toast
-const processCoverFile = (file) => {
+// Upload to the backend (OSS in prod) and store the returned public URL, NOT
+// base64. Social crawlers (Telegram/WeChat/Twitter) only accept a real URL for
+// og:image, so a base64 data-URI cover produces no share preview.
+const coverUploading = ref(false)
+const processCoverFile = async (file) => {
   if (!file?.type.startsWith('image/')) return
   if (file.size > 5 * 1024 * 1024) { ElMessage.error('封面图不能超过 5MB'); return }
-  const reader = new FileReader()
-  reader.onload = (ev) => { form.cover = ev.target.result }
-  reader.readAsDataURL(file)
+  coverUploading.value = true
+  try {
+    const fd = new FormData()
+    fd.append('file', file)
+    const resp = await adminApi.uploadPostCover(fd)
+    const data = resp.data ?? resp
+    if (!data.url) throw new Error('上传成功但服务端未返回 URL')
+    form.cover = data.url
+    ElMessage.success('封面上传成功')
+  } catch (err) {
+    ElMessage.error(err?.response?.data?.error?.message || err?.message || '封面上传失败')
+  } finally {
+    coverUploading.value = false
+  }
 }
 const onCoverFile = (e) => processCoverFile(e.target.files?.[0])
 const onCoverDrop = (e) => processCoverFile(e.dataTransfer.files?.[0])
