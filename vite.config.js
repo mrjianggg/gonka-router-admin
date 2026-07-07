@@ -19,9 +19,9 @@ const ipv4Agent = {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   // VITE_PROXY_TARGET selects where /admin/* gets forwarded to during dev.
-  // Use https://api.gonkascan.com to hit production, or http://localhost:4000
+  // Use https://api.gonkarouter.io to hit production, or http://localhost:4000
   // when running model-gateway locally via docker compose.
-  const proxyTarget = 'https://api.gonkascan.com'
+  const proxyTarget = 'https://api.gonkarouter.io'
 
   return {
     plugins: [
