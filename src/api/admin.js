@@ -16,10 +16,10 @@ export const adminApi = {
   quality(windowHours = 24) {
     return http.get('/admin/stats/quality', { params: { window_hours: windowHours } })
   },
-  users({ page = 1, pageSize = 20, q = '' } = {}) {
-    return http.get('/admin/users', {
-      params: { page, page_size: pageSize, q },
-    })
+  users({ page = 1, pageSize = 20, q = '', source = '' } = {}) {
+    const params = { page, page_size: pageSize, q }
+    if (source) params.source = source
+    return http.get('/admin/users', { params })
   },
   userDetail(id) {
     return http.get(`/admin/users/${id}`)

@@ -22,6 +22,21 @@
       >
         <template #prefix><el-icon><Search /></el-icon></template>
       </el-input>
+      <el-select
+        v-model="source"
+        size="default"
+        class="source-select"
+        placeholder="标签筛选"
+        @change="reload(1)"
+      >
+        <el-option label="全部标签" value="" />
+        <el-option
+          v-for="opt in sourceOptions"
+          :key="opt.value"
+          :label="opt.label"
+          :value="opt.value"
+        />
+      </el-select>
       <el-button type="primary" size="default" @click="reload(1)">
         <el-icon><Search /></el-icon>
         <span>搜索</span>
@@ -45,6 +60,14 @@
               {{ maskKey(row.api_key) }}
               <el-icon><CopyDocument /></el-icon>
             </div>
+            <span v-else class="muted">—</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="标签" width="110">
+          <template #default="{ row }">
+            <el-tag v-if="row.source" size="small" type="success" effect="light">
+              {{ row.source.toUpperCase() }}
+            </el-tag>
             <span v-else class="muted">—</span>
           </template>
         </el-table-column>
@@ -80,7 +103,12 @@
             <div class="uc-name">{{ row.name || row.email || `用户 #${row.id}` }}</div>
             <div class="mono uc-addr">{{ row.address ? short(row.address) : (row.email || '—') }}</div>
           </div>
-          <el-tag size="small" effect="plain">#{{ row.id }}</el-tag>
+          <div class="uc-tags">
+            <el-tag v-if="row.source" size="small" type="success" effect="light">
+              {{ row.source.toUpperCase() }}
+            </el-tag>
+            <el-tag size="small" effect="plain">#{{ row.id }}</el-tag>
+          </div>
         </div>
 
         <div v-if="row.api_key" class="uc-row">
@@ -151,6 +179,12 @@ const total = ref(0)
 const page = ref(1)
 const pageSize = ref(20)
 const q = ref('')
+const source = ref('')
+
+// Known acquisition tags. Extend as new campaigns are added.
+const sourceOptions = [
+  { label: 'FFF', value: 'fff' },
+]
 
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth <= 768)
 const paginationLayout = computed(() =>
@@ -209,7 +243,7 @@ async function reload(targetPage) {
   if (targetPage) page.value = targetPage
   loading.value = true
   try {
-    const data = await adminApi.users({ page: page.value, pageSize: pageSize.value, q: q.value })
+    const data = await adminApi.users({ page: page.value, pageSize: pageSize.value, q: q.value, source: source.value })
     rows.value = data.items || []
     total.value = data.total || 0
   } finally {
@@ -260,6 +294,15 @@ onMounted(() => reload(1))
 }
 
 .search-input { flex: 1; min-width: 200px; max-width: 420px; }
+.source-select { width: 150px; flex-shrink: 0; }
+
+.uc-tags {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
 
 .table-wrap {
   background: var(--color-surface);
