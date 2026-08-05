@@ -184,6 +184,7 @@ const source = ref('')
 // Known acquisition tags. Extend as new campaigns are added.
 const sourceOptions = [
   { label: 'FFF', value: 'fff' },
+  { label: 'ELITE', value: 'elite' },
 ]
 
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth <= 768)
