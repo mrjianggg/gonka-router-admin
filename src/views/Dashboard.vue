@@ -67,7 +67,18 @@
           <div class="stat-body">
             <div class="label">成功率</div>
             <div class="value">{{ quality.has_data ? quality.success_rate + '%' : '—' }}</div>
-            <div class="delta">样本 {{ fmt(quality.total_requests) }} 次</div>
+            <div class="delta">已服务 {{ fmt(quality.served_requests != null ? quality.served_requests : quality.total_requests) }} 次（不含限流）</div>
+          </div>
+        </div>
+
+        <div class="metric-card stat" :class="{ muted: !quality.has_data }" :style="cardStyle('violet')">
+          <div class="icon-wrap" :style="iconStyle('violet')">
+            <el-icon><Remove /></el-icon>
+          </div>
+          <div class="stat-body">
+            <div class="label">限流 429 <span class="suffix">背压</span></div>
+            <div class="value">{{ quality.has_data ? fmt(quality.throttled_requests || 0) : '—' }}</div>
+            <div class="delta">并发/RPM/RPD 拒绝 · 不计入成功率</div>
           </div>
         </div>
 
@@ -184,7 +195,7 @@ import { adminApi } from '@/api/admin'
 import {
   DataLine, Coin, Wallet, User, UserFilled,
   CircleCheck, Lightning, Clock, WarnTriangleFilled, TrendCharts,
-  Calendar,
+  Calendar, Remove,
 } from '@element-plus/icons-vue'
 
 const NARROW_BREAKPOINT = 720
