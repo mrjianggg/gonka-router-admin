@@ -1,5 +1,16 @@
 import http from './client'
 
+// Normalises the reporting window accepted by the stats endpoints.
+//
+// Callers may pass either a trailing day count (the original signature) or an
+// explicit { from, to } pair of YYYY-MM-DD strings. Keeping the number form
+// working means existing call sites are unaffected by the range picker.
+function statsRangeParams(range, fallbackDays) {
+  if (typeof range === 'number') return { days: range }
+  if (range && range.from && range.to) return { from: range.from, to: range.to }
+  return { days: fallbackDays }
+}
+
 export const adminApi = {
   login(username, password) {
     return http.post('/admin/login', { username, password })
@@ -7,11 +18,11 @@ export const adminApi = {
   overview() {
     return http.get('/admin/stats/overview')
   },
-  daily(days = 14) {
-    return http.get('/admin/stats/daily', { params: { days } })
+  daily(range = 14) {
+    return http.get('/admin/stats/daily', { params: statsRangeParams(range, 14) })
   },
-  models(days = 30) {
-    return http.get('/admin/stats/models', { params: { days } })
+  models(range = 30) {
+    return http.get('/admin/stats/models', { params: statsRangeParams(range, 30) })
   },
   quality(windowHours = 24) {
     return http.get('/admin/stats/quality', { params: { window_hours: windowHours } })

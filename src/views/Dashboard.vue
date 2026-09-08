@@ -122,18 +122,34 @@
         <el-icon><Calendar /></el-icon>
         <span>时间范围</span>
       </div>
-      <el-radio-group v-model="rangeDays" size="default" @change="reload" class="filter-bar__group">
-        <el-radio-button :value="7">近 7 天</el-radio-button>
-        <el-radio-button :value="14">近 14 天</el-radio-button>
-        <el-radio-button :value="30">近 30 天</el-radio-button>
-      </el-radio-group>
+      <div class="filter-bar__controls">
+        <el-radio-group :model-value="quickDays" size="default" class="filter-bar__group" @change="selectQuickRange">
+          <el-radio-button :value="7">近 7 天</el-radio-button>
+          <el-radio-button :value="14">近 14 天</el-radio-button>
+          <el-radio-button :value="30">近 30 天</el-radio-button>
+        </el-radio-group>
+        <el-date-picker
+          v-model="customRange"
+          type="daterange"
+          unlink-panels
+          range-separator="至"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+          value-format="YYYY-MM-DD"
+          size="default"
+          class="filter-bar__picker"
+          :clearable="true"
+          :disabled-date="isFutureDate"
+          @change="selectCustomRange"
+        />
+      </div>
     </div>
 
     <div class="section">
       <h2>
         <span class="section-bar" />
         每日趋势
-        <span class="hint-chip">近 {{ rangeDays }} 天</span>
+        <span class="hint-chip">{{ rangeLabel }}</span>
       </h2>
       <div v-if="daily" class="trend-row">
         <div class="trend-card">
@@ -156,7 +172,7 @@
       <h2>
         <span class="section-bar" />
         模型使用占比
-        <span class="hint-chip">近 {{ rangeDays }} 天</span>
+        <span class="hint-chip">{{ rangeLabel }}</span>
       </h2>
       <div v-if="modelItems.length === 0" class="empty-state">
         <el-empty description="暂无模型调用数据" :image-size="80" />
@@ -202,7 +218,48 @@ const NARROW_BREAKPOINT = 720
 const isNarrow = ref(typeof window !== 'undefined' && window.innerWidth <= NARROW_BREAKPOINT)
 let narrowListener = null
 
-const rangeDays = ref(14)
+// 时间范围：快捷天数与自定义区间二选一，任一生效时另一个置空，
+// 避免筛选栏出现「按钮高亮但图表其实按日期区间取数」的矛盾状态。
+const DEFAULT_QUICK_DAYS = 14
+const quickDays = ref(DEFAULT_QUICK_DAYS)
+const customRange = ref(null)
+
+// 传给 adminApi 的窗口参数：数字表示最近 N 天，对象表示明确区间。
+const activeRange = computed(() =>
+  customRange.value?.length === 2
+    ? { from: customRange.value[0], to: customRange.value[1] }
+    : quickDays.value
+)
+
+const rangeLabel = computed(() =>
+  customRange.value?.length === 2
+    ? `${customRange.value[0]} ~ ${customRange.value[1]}`
+    : `近 ${quickDays.value} 天`
+)
+
+// 后端以 UTC 自然日分桶，这里同样按 UTC 判断「未来」，
+// 否则东八区用户在当天 08:00 前会看到今天被禁选。
+function isFutureDate(date) {
+  const today = new Date()
+  const todayUTC = Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())
+  const targetUTC = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  return targetUTC > todayUTC
+}
+
+function selectQuickRange(days) {
+  quickDays.value = days
+  customRange.value = null
+  reload()
+}
+
+// el-date-picker 清空时回调值为 null，此时回落到默认快捷区间。
+function selectCustomRange(value) {
+  if (!value || value.length !== 2) {
+    customRange.value = null
+    quickDays.value = DEFAULT_QUICK_DAYS
+  }
+  reload()
+}
 const totals = ref({})
 const today = ref({})
 const daily = ref(null)
@@ -529,8 +586,8 @@ const modelRequestPieOption = computed(() =>
 async function reload() {
   const [ov, dy, mo, qa] = await Promise.all([
     adminApi.overview().catch(() => null),
-    adminApi.daily(rangeDays.value).catch(() => null),
-    adminApi.models(rangeDays.value).catch(() => null),
+    adminApi.daily(activeRange.value).catch(() => null),
+    adminApi.models(activeRange.value).catch(() => null),
     adminApi.quality(24).catch(() => null),
   ])
   if (ov) {
@@ -705,6 +762,16 @@ onBeforeUnmount(() => {
   color: var(--color-text-soft);
 }
 .filter-bar__label .el-icon { color: var(--color-brand-500); font-size: 16px; }
+.filter-bar__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.filter-bar__picker {
+  width: 260px;
+}
 .filter-bar__group :deep(.el-radio-button__inner) {
   transition: all var(--duration-fast) var(--ease-out) !important;
 }
@@ -821,6 +888,16 @@ onBeforeUnmount(() => {
     align-items: stretch;
     gap: 10px;
     padding: 12px;
+  }
+  .filter-bar__controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  /* 日期选择器在窄屏下必须显式给宽度，Element Plus 的行内默认宽度
+     会让它溢出筛选栏。 */
+  .filter-bar__picker {
+    width: 100%;
   }
   .filter-bar__group {
     width: 100%;
