@@ -67,7 +67,7 @@
           <div class="stat-body">
             <div class="label">成功率</div>
             <div class="value">{{ quality.has_data ? quality.success_rate + '%' : '—' }}</div>
-            <div class="delta">已服务 {{ fmt(quality.served_requests != null ? quality.served_requests : quality.total_requests) }} 次（不含限流）</div>
+            <div class="delta">已服务 {{ fmt(quality.served_requests != null ? quality.served_requests : quality.total_requests) }} 次（不含限流与客户端错误）</div>
           </div>
         </div>
 
@@ -79,6 +79,17 @@
             <div class="label">限流 429 <span class="suffix">背压</span></div>
             <div class="value">{{ quality.has_data ? fmt(quality.throttled_requests || 0) : '—' }}</div>
             <div class="delta">并发/RPM/RPD 拒绝 · 不计入成功率</div>
+          </div>
+        </div>
+
+        <div class="metric-card stat" :class="{ muted: !quality.has_data }" :style="cardStyle('amber')">
+          <div class="icon-wrap" :style="iconStyle('amber')">
+            <el-icon><WarnTriangleFilled /></el-icon>
+          </div>
+          <div class="stat-body">
+            <div class="label">客户端错误 <span class="suffix">请求无效</span></div>
+            <div class="value">{{ quality.has_data ? fmt(quality.client_error_requests || 0) : '—' }}</div>
+            <div class="delta">模型不存在/已下架 · 参数不支持 · 余额不足 · 不计入成功率</div>
           </div>
         </div>
 
@@ -692,7 +703,7 @@ onBeforeUnmount(() => {
 
 .metric-grid--primary,
 .metric-grid--quality {
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
 }
 
 /* Stat cards with accent bar + icon */
