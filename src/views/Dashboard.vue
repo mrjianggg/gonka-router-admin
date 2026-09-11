@@ -703,7 +703,7 @@ onBeforeUnmount(() => {
 
 .metric-grid--primary,
 .metric-grid--quality {
-  grid-template-columns: repeat(6, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 }
 
 /* Stat cards with accent bar + icon */
