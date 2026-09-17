@@ -185,6 +185,7 @@ const source = ref('')
 const sourceOptions = [
   { label: 'FFF', value: 'fff' },
   { label: 'ELITE', value: 'elite' },
+  { label: 'ICG', value: 'icg' },
 ]
 
 const isMobile = ref(typeof window !== 'undefined' && window.innerWidth <= 768)
