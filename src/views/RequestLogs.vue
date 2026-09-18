@@ -8,7 +8,9 @@
         </p>
       </div>
       <div class="head-meta">
-        <el-tag round size="default">共 {{ fmt(total) }} 条</el-tag>
+        <el-tag round size="default">
+          {{ totalEstimated ? '约' : '共' }} {{ fmt(total) }} 条
+        </el-tag>
       </div>
     </div>
 
@@ -356,6 +358,10 @@ import { adminApi } from '@/api/admin'
 const loading = ref(false)
 const rows = ref([])
 const total = ref(0)
+// Unfiltered, the backend returns a statistics estimate instead of an exact
+// count — counting 14M+ rows exactly took 6s and timed out this page. Any
+// filter still yields an exact number, so the label switches accordingly.
+const totalEstimated = ref(false)
 const page = ref(1)
 const pageSize = ref(20)
 
@@ -436,6 +442,7 @@ async function reload(targetPage) {
     })
     rows.value = data.items || []
     total.value = data.total || 0
+    totalEstimated.value = Boolean(data.total_estimated)
   } finally {
     loading.value = false
   }
